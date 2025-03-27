@@ -2,21 +2,30 @@
 
 namespace rk
 {
-    std::string Simulator::getCoppeliaSimDLLPath()
+    std::string Simulator::appDir = "";
+
+    std::string Simulator::getAppDir()
     {
+        if (!appDir.empty()) return appDir;
+        
         char pathBuffer[MAX_PATH];
         size_t pathSize;
-
         if (getenv_s(&pathSize, pathBuffer, MAX_PATH, "COPPELIASIM_ROOT_DIR") != 0 || pathSize == 0) {
             throw std::runtime_error("Environment variable COPPELIASIM_ROOT_DIR is not set. Please define it.");
         }
+        
+        auto path = std::filesystem::path(pathBuffer);
+        appDir = path.string();
+        return appDir;
+    }
 
-        auto dllPath = std::filesystem::path(pathBuffer) / "coppeliaSim.dll";
+    std::string Simulator::getCoppeliaSimDLLPath()
+    {
+        auto dllPath = std::filesystem::path(getAppDir()) / "coppeliaSim.dll";
 
         if (!std::filesystem::exists(dllPath)) {
             throw std::runtime_error("CoppeliaSim DLL not found at: " + dllPath.string());
         }
-
         std::cout << "CoppeliaSim DLL found at: " << dllPath << std::endl;
 
         return dllPath.string();
@@ -30,21 +39,23 @@ namespace rk
         size_t convertedChars = 0;
         wchar_t* wcstr = new wchar_t[newSize];
         mbstowcs_s(&convertedChars, wcstr, newSize, dllPath.c_str(), _TRUNCATE);
+        SetDllDirectory(getAppDir().c_str());
         m_hLib = LoadLibraryW(wcstr);
         delete[] wcstr;
 
-        /*char buffer[100];
-        itoa(GetLastError(), buffer, 10);
-        if (!hLib) {
+        if (m_hLib == NULL) {
+            char buffer[100];
+            itoa(GetLastError(), buffer, 10);
             throw std::runtime_error("Failed to load CoppeliaSim DLL from: " + dllPath + "\nError: " + buffer);
-        }*/
+        }
 
-        simRunSimulator = loadFunction<int()>("simRunSimulator");
-        simLoadScene = loadFunction<int(const char*)>("simLoadScene");
-        simGetObjectHandle = loadFunction<int(const char*, int*)>("simGetObjectHandle");
-        simSetJointPosition = loadFunction<int(int, float)>("simSetJointPosition");
-        simStartSimulation = loadFunction<int()>("simStartSimulation");
-
+        if (getSimProcAddresses(m_hLib) == 0)
+        {
+            FreeLibrary(m_hLib);
+            std::cerr << "Could not find all required functions in the CoppeliaSim library.\n";
+            return;
+        }
+        
         std::cout << "CoppeliaSim DLL loaded successfully from: " << dllPath << std::endl;
     }
 
@@ -55,7 +66,7 @@ namespace rk
 
     void Simulator::runGUI()
     {
-        if (simRunSimulator) simRunSimulator();
+        simRunGui(sim_gui_all);
     }
 
     std::function<void()> Simulator::getSimulationFunc()
@@ -68,8 +79,14 @@ namespace rk
     {
         try
         {
+            simInitialize(getAppDir().c_str(), 0);
+
             loadScene("C:\\Program Files\\CoppeliaRobotics\\CoppeliaSimEdu\\scenes\\tutorials\\BubbleRob\\bubbleRob-python.ttt");
-            simStartSimulation();
+            while (!simGetExitRequest())
+            {
+                simLoop(nullptr, 0);
+            }
+            simDeinitialize();
         }
         catch (const std::exception& e)
         {
@@ -84,15 +101,6 @@ namespace rk
             throw std::runtime_error("Failed to load scene: " + scenePath);
         }
         std::cout << "Scene loaded: " << scenePath << std::endl;
-    }
-
-    int Simulator::getObjectHandle(const std::string& objectName)
-    {
-        int handle;
-        if (simGetObjectHandle && simGetObjectHandle(objectName.c_str(), &handle) != 0) {
-            throw std::runtime_error("Failed to get object handle: " + objectName);
-        }
-        return handle;
     }
 
     void Simulator::setJointPosition(int jointHandle, float position)
