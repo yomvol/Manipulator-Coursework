@@ -2,6 +2,9 @@
 
 namespace rk
 {
+    void simulationLoop();
+    int simulationInit();
+
     std::string Simulator::appDir = "";
 
     std::string Simulator::getAppDir()
@@ -80,10 +83,20 @@ namespace rk
         try
         {
             simInitialize(getAppDir().c_str(), 0);
+            std::filesystem::path scenePath(RESOURCES_PATH);
+            scenePath.append("Main.ttt");
+            loadScene(scenePath.string());
 
-            loadScene("C:\\Program Files\\CoppeliaRobotics\\CoppeliaSimEdu\\scenes\\tutorials\\BubbleRob\\bubbleRob-python.ttt");
+            if (simulationInit() < 0)
+            {
+                simExtPostExitRequest();
+                simDeinitialize();
+                return;
+            }
+
             while (!simGetExitRequest())
             {
+                simulationLoop();
                 simLoop(nullptr, 0);
             }
             simDeinitialize();

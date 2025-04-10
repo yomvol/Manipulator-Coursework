@@ -29,7 +29,7 @@ set(INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_subdirectory(deps/eigen)
 
-add_executable(${PROJECT_NAME} "src/main.cpp" "include/Simulator.h" "src/Simulator.cpp" 
+add_executable(${PROJECT_NAME} "src/main.cpp" "include/Simulator.h" "src/Simulator.cpp"  "src/Simulation.cpp"
 "${COPPELIASIM_INCLUDE_DIR}/simLib/simLib.h" "${COPPELIASIM_INCLUDE_DIR}/simLib/simLib.cpp")
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${INCLUDE_DIR} ${COPPELIASIM_INCLUDE_DIR})
@@ -41,3 +41,7 @@ foreach (DLL ${QT_DLLS})
         COMMAND ${CMAKE_COMMAND} -E copy_if_different ${DLL} $<TARGET_FILE_DIR:${PROJECT_NAME}>/platforms
     )
 endforeach()
+
+file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/resources" RES_PATH)
+#message(${RES_PATH})
+add_compile_definitions(RESOURCES_PATH="${RES_PATH}")
