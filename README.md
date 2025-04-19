@@ -10,7 +10,11 @@ For example, C:\Program Files\CoppeliaRobotics\CoppeliaSimEdu
 3) Clone the repository:
 git clone --recursive https://github.com/yomvol/Manipulator-Coursework
 4) On the command line:
+
 mkdir build && cd build
+
 cmake .. -G "Visual Studio 17 2022"
+
 cmake --build . --config Release
+
 In the build/Release folder you'll have Manipulator.exe
